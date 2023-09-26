@@ -4,70 +4,108 @@ const net = require('net');
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout,
+  output: process.stdout
 });
 
-let filePath, port, startDate, endDate;
+let filePath, startDate, endDate, startTime, endTime, port;
+let startDateEpoch, endDateEpoch;
 
-// Establish a TCP server at the specified port
-const server = net.createServer((client) => {
-  // Prompt the user for the file path to a text file
-  rl.question('Enter the file path to the text file: ', (file) => {
-    filePath = file;
-
-    // Prompt the user for a date in MM/DD/YY format
-    client.write('Enter a date (MM/DD/YY): ');
-
-    client.on('data', (data) => {
-      const input = data.toString().trim();
-
-      if (!startDate) {
-        startDate = new Date(input);
-        client.write('Enter a start time (HH:mm:ss): ');
-      } else if (!endDate) {
-        endDate = new Date(input);
-        client.write('Enter an end time (HH:mm:ss): ');
-      } else {
-        client.write('Invalid input. Connection closing...\r\n');
-        client.end();
-      }
+function promptForFilePath() {
+    rl.question('Enter the file path to a text file: ', (answer) => {
+      filePath = answer;
+      promptForDate();
     });
+  }
 
-    client.on('end', () => {
-      if (startDate && endDate) {
-        readAndFilterFile(filePath, startDate, endDate, client);
-      }
-    });
-  });
-});
-
-server.listen(3000, () => {
-  console.log('TCP server listening on port 3000');
-});
-
-// Function to read and filter the text file
-function readAndFilterFile(filePath, startDate, endDate, client) {
-  const fileStream = fs.createReadStream(filePath);
-
-  fileStream.on('data', (data) => {
-    const lines = data.toString().split('\n');
-
-    for (const line of lines) {
-      if (line.startsWith('aa')) {
-        const dateString = line.substr(2, 6);
-        const timeString = line.substr(8, 6);
-        const dateTimeString = `20${dateString} ${timeString}`;
-        const dateTime = new Date(dateTimeString);
-
-        if (dateTime >= startDate && dateTime <= endDate) {
-          client.write(line + '\r\n');
-        }
-      }
-    }
-  });
-
-  fileStream.on('end', () => {
-    client.end();
-    console.log('Transmission complete. Connection closed.');
+function promptForDate() {
+  rl.question('Enter a date in MM/DD/YY format: ', (answer) => {
+    startDate = answer;
+    promptForEndDate(); // Changed to prompt for end date
   });
 }
+
+function promptForEndDate() {
+  rl.question('Enter an end date in MM/DD/YY format: ', (answer) => {
+    endDate = answer;
+    promptForStartTime();
+  });
+}
+
+function promptForStartTime() {
+  rl.question('Enter a start time in 24-hour format (HH:mm:ss): ', (answer) => {
+    startTime = answer;
+    promptForEndTime();
+  });
+}
+
+function promptForEndTime() {
+  rl.question('Enter an end time in 24-hour format (HH:mm:ss): ', (answer) => {
+    endTime = answer;
+    promptForPort();
+  });
+}
+
+function promptForPort() {
+  rl.question('Enter a port number for the TCP server: ', (answer) => {
+    port = parseInt(answer);
+
+    // Calculate start and end date in epoch format for comparison
+    startDateEpoch = new Date(startDate).getTime();
+    endDateEpoch = new Date(endDate).getTime();
+
+    createTCPServer();
+  });
+}
+
+function createTCPServer() {
+    const server = net.createServer((client) => {
+      const fileStream = fs.createReadStream(filePath);
+      let foundMatchingLines = false;
+  
+      fileStream.on('data', (data) => {
+        const lines = data.toString().split('\n');
+        for (const line of lines) {
+          if (line.startsWith('aa')) {
+            const timestamp = line.substr(2, 12); // Extract timestamp
+  
+            // Parse the timestamp into separate components
+            const year = parseInt(timestamp.substr(0, 2)) + 2000; // Assuming 20xx format
+            const month = parseInt(timestamp.substr(2, 2));
+            const day = parseInt(timestamp.substr(4, 2));
+            const hour = parseInt(timestamp.substr(6, 2));
+            const minute = parseInt(timestamp.substr(8, 2));
+            const second = parseInt(timestamp.substr(10, 2));
+  
+            const lineDate = new Date(year, month - 1, day, hour, minute, second);
+            const startTimeDate = new Date(startDate + ' ' + startTime);
+            const endTimeDate = new Date(endDate + ' ' + endTime);
+  
+            if (
+              lineDate >= startTimeDate &&
+              lineDate <= endTimeDate
+            ) {
+              client.write(`${line}\r\n`);
+              foundMatchingLines = true;
+            }
+          }
+        }
+      });
+  
+      fileStream.on('end', () => {
+        client.end();
+  
+        if (foundMatchingLines) {
+          console.log('Matching lines were found and transmitted.');
+        } else {
+          console.log('No matching lines were found.');
+        }
+      });
+    });
+  
+    server.listen(port, () => {
+      console.log(`TCP server listening on port ${port}`);
+    });
+  }
+  
+
+promptForFilePath();
