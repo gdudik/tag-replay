@@ -12,10 +12,12 @@ let startDateEpoch, endDateEpoch;
 
 function promptForFilePath() {
     rl.question('Enter the file path to a text file: ', (answer) => {
-        filePath = answer;
+        // Remove surrounding quotes from the entered path, if any
+        filePath = answer.replace(/^"(.*)"$/, '$1');
         promptForDate();
     });
 }
+
 
 function promptForDate() {
     rl.question('Enter a date in MM/DD/YY format: ', (answer) => {
