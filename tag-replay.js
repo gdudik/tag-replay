@@ -58,54 +58,75 @@ function promptForPort() {
 }
 
 function createTCPServer() {
-    const server = net.createServer((client) => {
-      const fileStream = fs.createReadStream(filePath);
-      let foundMatchingLines = false;
-  
-      fileStream.on('data', (data) => {
-        const lines = data.toString().split('\n');
-        for (const line of lines) {
-          if (line.startsWith('aa')) {
-            const timestamp = line.substr(2, 12); // Extract timestamp
-  
-            // Parse the timestamp into separate components
-            const year = parseInt(timestamp.substr(0, 2)) + 2000; // Assuming 20xx format
-            const month = parseInt(timestamp.substr(2, 2));
-            const day = parseInt(timestamp.substr(4, 2));
-            const hour = parseInt(timestamp.substr(6, 2));
-            const minute = parseInt(timestamp.substr(8, 2));
-            const second = parseInt(timestamp.substr(10, 2));
-  
-            const lineDate = new Date(year, month - 1, day, hour, minute, second);
-            const startTimeDate = new Date(startDate + ' ' + startTime);
-            const endTimeDate = new Date(endDate + ' ' + endTime);
-  
-            if (
-              lineDate >= startTimeDate &&
-              lineDate <= endTimeDate
-            ) {
-              client.write(`${line}\r\n`);
-              foundMatchingLines = true;
-            }
+  const server = net.createServer((client) => {
+    const fileStream = fs.createReadStream(filePath);
+    let foundMatchingLines = false;
+
+    let buffer = ''; // Buffer to hold incomplete lines
+
+    fileStream.on('data', (data) => {
+      buffer += data.toString();
+      const lines = buffer.split('\n'); // Split by '\n' to handle different line endings
+      buffer = lines.pop(); // Store any incomplete line for the next chunk
+
+      for (const line of lines) {
+        if (line.startsWith('aa')) {
+          const timestamp = line.substr(2, 12); // Extract timestamp
+
+          console.log(`Found line: ${line}`);
+          console.log(`Extracted timestamp: ${timestamp}`);
+
+          // Parse the timestamp into separate components
+          const year = parseInt(timestamp.substr(0, 2)) + 2000; // Assuming 20xx format
+          const month = parseInt(timestamp.substr(2, 2));
+          const day = parseInt(timestamp.substr(4, 2));
+          const hour = parseInt(timestamp.substr(6, 2));
+          const minute = parseInt(timestamp.substr(8, 2));
+          const second = parseInt(timestamp.substr(10, 2));
+
+          console.log(`Parsed year: ${year}`);
+          console.log(`Parsed month: ${month}`);
+          console.log(`Parsed day: ${day}`);
+          console.log(`Parsed hour: ${hour}`);
+          console.log(`Parsed minute: ${minute}`);
+          console.log(`Parsed second: ${second}`);
+
+          const lineDate = new Date(year, month - 1, day, hour, minute, second);
+          const startTimeDate = new Date(startDate + ' ' + startTime);
+          const endTimeDate = new Date(endDate + ' ' + endTime);
+
+          console.log(`Line date: ${lineDate}`);
+          console.log(`Start time date: ${startTimeDate}`);
+          console.log(`End time date: ${endTimeDate}`);
+
+          if (
+            lineDate >= startTimeDate &&
+            lineDate <= endTimeDate
+          ) {
+            client.write(`${line}\r\n`);
+            foundMatchingLines = true;
+            console.log('Matching line found.');
           }
         }
-      });
-  
-      fileStream.on('end', () => {
-        client.end();
-  
-        if (foundMatchingLines) {
-          console.log('Matching lines were found and transmitted.');
-        } else {
-          console.log('No matching lines were found.');
-        }
-      });
+      }
     });
-  
-    server.listen(port, () => {
-      console.log(`TCP server listening on port ${port}`);
+
+    fileStream.on('end', () => {
+      client.end(); // End the client connection
+
+      if (!foundMatchingLines) {
+        console.log('No matching lines were found.');
+      }
+
+      server.close(); // Close the server after processing
     });
-  }
-  
+  });
+
+  server.listen(port, () => {
+    console.log(`TCP server listening on port ${port}`);
+  });
+}
+
+
 
 promptForFilePath();
