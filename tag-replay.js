@@ -11,7 +11,7 @@ let filePath, startDate, endDate, startTime, endTime, port;
 let startDateEpoch, endDateEpoch;
 
 function promptForFilePath() {
-    rl.question('Enter the file path to a text file: ', (answer) => {
+    rl.question('Enter the file path to a text file (in Windows, use right-click to paste in a command line): ', (answer) => {
         // Remove surrounding quotes from the entered path, if any
         filePath = answer.replace(/^"(.*)"$/, '$1');
         promptForDate();
